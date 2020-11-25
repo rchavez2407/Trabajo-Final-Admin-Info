@@ -1,0 +1,468 @@
+---
+title: "DocumentacionT_F"
+author: "Ramiro Chavez"
+date: "25/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Indice
+## 1.Descripcion del caso de estudio
+
+En el Perú siempre ha existido problemas sociales y uno de los problemas mas frecuetes es la violencia que existe . Durante años se ha intentado combatir con esta gran problematica y usualmente , para lograr una mejor toma de decisiones , las entidades publicas registran las denuncias que realizan las personas a menudo . Gracias a la recopilacion de dicha informacion se generan extensos datasets que ultimamente son publicados en la pagina de gob.pe .Para saber los indices de violencia en diferentes partes del Peru se necesita tener informacion acerca del numero de casos denunciados de violencia en cada departamento , provincia y distrito . Es que con esta informacion las autoridades tomaran decisiones para conbatir este gran problema.
+
+## 2.Procedimiento
+
+### 2.1.Recoleccion de datos
+Para la recolección de datos se extrajo un dataset desde la página "datosabiertos.gob.pe". Este dataset presenta un conjunto de registros del numero de casos denunciados por violencia ya sea hecho por un varon y una mujer , ademas tambien presenta el numero de casos denunciados por violencia ya sea fisica , psicologica o sexual para cada sitio en el Peru. El data set cuenta con 2538 registros .
+
+### 2.2.Preprocesamiento
+El data set adquirido tiene algunos errores como muchas filas vacias , faltan valores , columnas de mas , numeros incorrectamente tipeados y algunos errores mas. Para ello se realizó imputaciones de valores , se elimino columnas , se cambio el tipo de formato de las fechas , se corrigo errores de tipeo numerico. Estos fueron las acciones que se realizaron.
+
+```{r}
+DF <- read.csv("Codigo/Datos Fuente/CasosFem.csv",header = T , sep=";" ,
+               na.strings = "" , dec = ",")
+
+class(DF)
+
+glimpse(DF)
+
+##Hacemos la preparacion de datos
+
+#Eliminamos als columnas que no nos interesan
+
+PDF1 <- DF[,c(1:16 , 18:22)]
+glimpse(PDF1)
+#####Ahora solamente tenemos 21 columnas
+
+###Debido que existen numeros en este data frame que fueron anotados con espacios , implementaremos una funcion que elimine
+#espacios vacios
+
+EliminaEspacios <- function(texto){
+  return (gsub(" ",replacement = "", texto))
+}
+##Ahora , para cada variable numerica , les quitaremos sus espacios en blanco para posteriormente convertirlos en datos
+#numericos
+glimpse(PDF1)
+PDF1$N..CASOS.ATENDIDOS...MUJERES...TOTAL <- EliminaEspacios(PDF1$N..CASOS.ATENDIDOS...MUJERES...TOTAL)
+PDF1$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA <- EliminaEspacios(PDF1$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA)
+PDF1$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA <- EliminaEspacios(PDF1$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA)
+
+
+##Borramos aquellos registros donde sus variables numericas esten NA
+
+indNA <- c()
+for (i in 1:NROW(PDF1)){
+  
+  
+  if(is.na(PDF1[i, 17]) & is.na(PDF1[i, 18]) & is.na(PDF1[i, 19]) &
+     is.na(PDF1[i, 20]) & is.na(PDF1[i, 21])){
+    
+    indNA <- c(indNA , i)
+    
+  }
+  
+  
+}
+
+PDF2 <- PDF1[-indNA , ]
+
+
+
+PDF2 <- PDF1[!(is.na(PDF1$N..CASOS.ATENDIDOS...HOMBRES...TOTAL)),]
+
+NROW(PDF1)
+NROW(PDF2)
+###Podemos observar que se eliminaron 12 registros ya que no tenian datos importantes
+
+
+#Cambiamos los tipos de dato de las columnas
+###Cambiando la fecha a as.Date
+PDF2$FECHA.ENVIO <- as.Date(PDF2$FECHA.ENVIO)
+PDF2$FECHA.ENVIO <- as.character(PDF2$FECHA.ENVIO)
+
+PDF2$FECHA.ENVIO <- paste("20",substring(PDF2$FECHA.ENVIO,9,10),"-",
+                          substring(PDF2$FECHA.ENVIO,6,7), "-" ,
+                          substring(PDF2$FECHA.ENVIO,3,4),sep ="")
+
+#Cambiando a tipo de dato Date
+PDF2$FECHA.ENVIO <- as.Date(PDF2$FECHA.ENVIO)
+glimpse(PDF2)
+
+#Cambiando a tipo de dato factor
+PDF2$DEPARTAMENTO <- as.factor(PDF2$DEPARTAMENTO)
+PDF2$PROVINCIA <- as.factor(PDF2$PROVINCIA)
+PDF2$DISTRITO <- as.factor(PDF2$DISTRITO)
+PDF2$NOMBRE.CENTRO.ATENCION <- as.factor(PDF2$NOMBRE.CENTRO.ATENCION)
+
+
+#cAMBIAMOS ALGUNOS DATOS A NUMERICOS
+PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL <- as.integer(PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL)
+PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA<- as.integer(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA)
+PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA <- as.integer(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA)
+
+
+#Hacemos imputacion de datos para valores NA 
+
+glimpse(PDF2)
+
+promHT <- as.integer(mean(na.omit(PDF2$N..CASOS.ATENDIDOS...HOMBRES...TOTAL))) 
+promMT <- as.integer(mean(na.omit(PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL))) 
+promVP <- as.integer(mean(na.omit(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA)))
+promVF <- as.integer(mean(na.omit(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA)))
+promVS <- as.integer(mean(na.omit(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL)))
+
+
+##IMpautacion para la variable de n..casos..atendidos.mujeres..total
+
+PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL <- ifelse(is.na(PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL),
+                                                    promMT,PDF2$N..CASOS.ATENDIDOS...MUJERES...TOTAL)
+
+##Imputacion para la variable de numero de casos denunciados de violencia psicologia
+PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA <- ifelse(is.na(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA),
+                                                    promVP,PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA)
+
+
+##Imputacion para la variable de numero de casos denunciados de violencia fisica
+PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA <- ifelse(is.na(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA),
+                                                          promVF,PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA)
+
+##Imputacion para la variable de numero de casos denunciados de violencia sexual
+PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL <- ifelse(is.na(PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL),
+                                                     promVS,PDF2$N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL)
+
+
+##UNA VEZ TERMINADO DE REALZIAR EL PREPROCESAMIENTO GUARDAMOS EL DATASET EN UN ARCHIVO CSV
+
+write.csv(PDF2, "Codigo/Datos Fuente/DatosPreprocesadosFinal.csv",row.names = FALSE)
+
+
+###prbamos si recura el data frame ya preprocesado
+PruebaObtencion <- read.csv("Codigo/Datos Fuente/DatosPreprocesadosFinal.csv")
+glimpse(PruebaObtencion)
+
+```
+
+### 2.3 Conexion a base de datos
+Luego de haber hecho el preprocesamiento y tener la data lista y estructurada . Se exporto el data frame de tipo de archivo csv. a un servidor de base de datos. Antes de ello se realizo la conexion con este mediante las siguientes acciones.
+```{r}
+driver = MySQL()
+host = "3.235.246.109"
+port = 3306
+user = "administrador"
+password = "adminfo"
+dbname = "Tf_DB"
+```
+```{r}
+library(RMySQL)
+library(DBI)
+
+
+source("Back up DB/Datos.R")
+
+##Nos conectamos a la base de datos
+if(dbCanConnect(drv=driver,port=port,user=user,host=host,
+                password=password,dbname=dbname)){
+  
+  
+  conexion <- dbConnect(drv=driver,port = port,user=user,host=host,
+                        password = password,dbname = dbname)
+}
+
+
+
+if (!(dbExistsTable(conexion, "Registros_Violencia"))){
+  
+  dbWriteTable(conexion, name = "Registros_Violencia" , value = df , append = TRUE)
+  
+}
+
+```
+
+### 2.4. Exploracion
+Luego de haber hecho el preprocesamiento y tener la data lista y estructurada , se podran realizar diferentes operaciones con nuestro dataframe. Se podran realizar consultas . En este caso para las consultas se utilizó la libreria de DPLYR . Se realziaron 10 consultas con esta. 
+```{r}
+
+df <- read.csv("Codigo/Datos Fuente/DatosPreprocesadosFinal.csv")
+df$FECHA.ENVIO <- as.Date(df$FECHA.ENVIO) #Convertimos el dato fecha
+#df$DEPARTAMENTO <- as.factor(df$DEPARTAMENTO)
+#df$PROVINCIA <- as.factor(df$PROVINCIA)
+#df$DISTRITO <- as.factor(df$DISTRITO)
+#df$NOMBRE.CENTRO.ATENCION <- as.factor(df$NOMBRE.CENTRO.ATENCION)
+glimpse(df)
+
+
+#10 consultas Exploratorias con DPLYR
+library(dplyr)
+
+#1.Cuantos registros de numero de casos de violencia se dieron en Lima Metropolitana
+
+ q1 <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% summarise(Total = n())
+
+#2.Cuantos casos de denuncia hacia los hombres existieron durante el 2013 y 2020
+ 
+ #q2 <- sum(df %>% select(N..CASOS.ATENDIDOS...HOMBRES...TOTAL))
+ q2 <- df %>% summarise(Total_Casos = sum(N..CASOS.ATENDIDOS...HOMBRES...TOTAL))
+ 
+#3.Listado de año,  provincias y numero de casos de violencia hacia mujeres que se dieron en el departamento de Arequipa 
+ q3 <- df %>% filter(DEPARTAMENTO == "AREQUIPA") %>% select(AÑO, PROVINCIA, N..CASOS.ATENDIDOS...MUJERES...TOTAL)
+ 
+#4.Numero de casos de violencia fisica en el distrito de Carabayllo 
+ q4 <- df %>% filter(DISTRITO == "CARABAYLLO") %>% summarise(Numero_Violencia_fisica
+                                                             = sum(N..CASOS.ATENDIDOS...VIOLENCIA.FISICA))
+ 
+ 
+#5.Listado de departamentos y año cuyo numero de casos de violencias psicologicas son mayor a 100
+ q5 <- df %>% select(AÑO , DEPARTAMENTO , N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA) %>% 
+   filter( N..CASOS.ATENDIDOS...VIOLENCIA.PSICOLOGICA > 100)
+ 
+ 
+#6.Listado de los 10 primeros registros con el mayor numero de casos de violencia contra la mujer
+ q6 <- df %>% select(AÑO,FECHA.ENVIO,DEPARTAMENTO,PROVINCIA,DISTRITO,N..CASOS.ATENDIDOS...MUJERES...TOTAL) %>% 
+   arrange(desc(N..CASOS.ATENDIDOS...MUJERES...TOTAL)) %>% top_n(10)
+
+#7.Listado de los 5 primeros registros con el mayor numero de casos de violencia fisica en el distrito de Miraflores
+ q7 <- df %>% filter(DISTRITO == "MIRAFLORES") %>%
+   select(AÑO , FECHA.ENVIO , N..CASOS.ATENDIDOS...VIOLENCIA.FISICA) %>%
+   arrange(desc(N..CASOS.ATENDIDOS...VIOLENCIA.FISICA)) %>% top_n(5)
+ 
+ 
+#8. Listado de cada departamento con el numero de casos de violencia sexual
+ 
+ q8 <- df %>% select(DEPARTAMENTO , N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL) %>%
+   group_by(DEPARTAMENTO) %>% summarise(Total_Casos_ViolenciaSexual = sum(N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL))
+   
+#9. Listado de cada provincia del departamento de Cusco con el numero de casos de violencia contra la mujer
+ q9 <- df %>% filter(DEPARTAMENTO == "CUSCO") %>% select(PROVINCIA , N..CASOS.ATENDIDOS...MUJERES...TOTAL) %>%
+   group_by(PROVINCIA) %>% summarise(Total_Casos_violenciaMujer = sum(N..CASOS.ATENDIDOS...MUJERES...TOTAL))
+ 
+#10.Del total del numero de casos de violencia contra la mujer en el departamento de Lima Metropolitana, cual es 
+ #el promedio , la mediana , el minimo , el maximo , percentiles y cuartiles
+ 
+ prom <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% na.omit() %>%
+   summarise(promedio = mean(N..CASOS.ATENDIDOS...MUJERES...TOTAL)) 
+ mediana <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% na.omit() %>%
+   summarise(mediana = median(N..CASOS.ATENDIDOS...MUJERES...TOTAL))
+ minimo <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% na.omit() %>%
+   summarise(minimo = min(N..CASOS.ATENDIDOS...MUJERES...TOTAL))
+ maximo <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% na.omit() %>%
+   summarise(maximo = max(N..CASOS.ATENDIDOS...MUJERES...TOTAL))
+ quartil <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA") %>% na.omit() %>%
+   summarise(cuartil = quantile(N..CASOS.ATENDIDOS...MUJERES...TOTAL))
+
+
+ q10 <- c(as.float(prom) , as.float(mediana) , as.float(minimo) , as.float(maximo) , as.float(quartil)) 
+ names(q10) <- c("Promedio" , "Mediana" , "Minimo" , "Maximo" , "Quartil")
+
+```
+Tambien se realizaron 10 graficas con la libreria ggplot2
+
+```{r}
+# 10 DIAGRAMAS CON ggplot2
+ library(ggplot2) 
+ 
+ 
+ #G1: Grafica un histograma donde se puede observar la mayor concentracion de datos por la variable n.casos.atendidos.mujeres
+
+ g1 <- ggplot(df) + aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL) + geom_histogram(fill = "#12BB00") +
+    theme_dark()
+ 
+ #G2: Grafica un histograma donde se puede observar la mayor concentracion de datos por dep para la variable n.casos.mujeres
+ g2 <- ggplot(df) + aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL, fill = DEPARTAMENTO) + geom_histogram(bins = 100) +
+    theme_linedraw() + labs(x = 'Numero de casos atentidos de violencia contra la mujer' , y = 'Numero de registros',
+                            title = 'Histograma de registros de violencia contra la mujer por Departamento ')
+ 
+ #G3: Grafica el de antes pero en diferentes viewers
+ g3 <- g2+facet_wrap(vars(DEPARTAMENTO))
+    
+ 
+ #G4: Diagrama de cajas para la variable "numero de casos de violencia atendidos contra la mujer"
+ 
+ g4 <- ggplot(df) + aes(y = N..CASOS.ATENDIDOS...MUJERES...TOTAL ) + geom_boxplot(fill = '#27CC85') +
+    labs(y = 'Numero de casos atentidos de violencia contra la mujer', x = "" , title = 'Diagrama de cajas')
+ 
+ 
+ #G5: Diagrama de cajas para la variable "numero de casos de violencia atendidos contra la mujer" para cada departamento
+ g5 <- ggplot(df) + aes(y = N..CASOS.ATENDIDOS...MUJERES...TOTAL,fill = DEPARTAMENTO ) + geom_boxplot() +
+    labs(y = 'Numero de casos atentidos de violencia contra la mujer', x = '' , title = 'Diagrama de cajas')
+ 
+
+ 
+ #G6: Diagrama de cajas que muestra la dsitribucion de registros de los departamentos Lima y Arequipa con respecto al numero de casos de denuncia de violencia contra la mujer
+ 
+ g6 <- df %>% filter((DEPARTAMENTO == 'LIMA METROPOLITANA' |DEPARTAMENTO == 'AREQUIPA') & 
+                         AÑO >= 2015 & AÑO <= 2019) %>% ggplot() +
+    aes(y = N..CASOS.ATENDIDOS...MUJERES...TOTAL,fill = DEPARTAMENTO ) + 
+    geom_boxplot() +
+    labs(y = 'Numero de casos atentidos de violencia contra la mujer', x = '' , title = 'Diagrama de cajas') +
+    facet_wrap(facets = vars(DEPARTAMENTO))
+ 
+ 
+ #G7: Diagrama de densidad que muestra la densidad de los registros para los departamentos de Arequipa , Lima y La Libertad con respecto al numero de casos denunciados contra la mujer
+ 
+ g7 <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA" |DEPARTAMENTO == "AREQUIPA" | DEPARTAMENTO == "LA LIBERTAD") %>%
+    ggplot() + 
+    aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL,fill = DEPARTAMENTO ) +
+    geom_density(alpha = 0.5) +
+    labs(x = "Numero de casos atentidos de violencia contra la mujer", x = "" , title = "Diagrama de densidad")
+    
+ 
+ #G8: Diagrama de dispercion del numero de casos atendidos de violencia contra la mujer versus el numero de casos atendidos por violencia
+ g8 <- ggplot(df , 
+              aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL ,
+                  y = N..CASOS.ATENDIDOS...VIOLENCIA.FISICA ,
+                  color = DEPARTAMENTO)) +
+    geom_point()
+ 
+ 
+ 
+ #G9: Diagrama de dispercion del numero de casos atendidos de violencia contra la mujer versus el numero de casos atendidos por violencia en los departamentos de Lima , Arequipa y La Libertad
+ g9 <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA" |DEPARTAMENTO == "AREQUIPA" | DEPARTAMENTO == "LA LIBERTAD") %>% 
+    ggplot( aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL ,
+                  y = N..CASOS.ATENDIDOS...VIOLENCIA.FISICA ,
+                  color = DEPARTAMENTO)) +
+    geom_point()
+ 
+ 
+ #G10 Diagrama de dispercion con lineas de regresion 
+ g10 <- df %>% filter(DEPARTAMENTO == "LIMA METROPOLITANA" |DEPARTAMENTO == "AREQUIPA" | DEPARTAMENTO == "LA LIBERTAD") %>% 
+    ggplot( aes(x = N..CASOS.ATENDIDOS...MUJERES...TOTAL ,
+                y = N..CASOS.ATENDIDOS...VIOLENCIA.FISICA ,
+                color = DEPARTAMENTO)) +
+    geom_point() + geom_smooth()
+ 
+
+
+```
+
+### 2.5. Modelos
+Ahora luego de haber hecho un analisis , se utilizaran algunos modelos predictivos para determinar ciertos valores. En este caso se utilizó 2 modelos siendo etos la Regresion Lineal y el KNN 
+
+```{r}
+
+Regresion_Lineal <- function(var1 , var2 , nvar1 , nvar2){
+  resultados <- list()
+  
+  prediccion <- NA
+  
+  promvar1 <- mean(var1)
+  promvar2 <- mean(var2)
+  
+  dvar1 <- var1 - promvar1
+  dvar2 <- var2 - promvar2
+  
+  arrayCov <- dvar1 * dvar2
+  
+  Covarianza <- sum(arrayCov)/(length(arrayCov)-1)
+  
+  
+  desvar1 <- dvar1 * dvar1
+  desvar2 <- dvar2 * dvar2
+  
+  
+  VarianzaVar1 <- (sum(desvar1)/(length(desvar1) - 1)) ^ 0.5
+  VarianzaVar2 <- (sum(desvar2)/(length(desvar2) - 1)) ^ 0.5
+  
+  r <- Covarianza/(VarianzaVar1 * VarianzaVar2)
+  
+  #Prediccion var2 sobre var1
+  
+  if (is.na(nvar2))
+    prediccion <- promvar2 + (Covarianza/(VarianzaVar1 ^ 2))*(nvar1 - promvar1) 
+  #Prediccion var1 sobre var2
+  if (is.na(nvar1))
+    prediccion <- promvar1 + (Covarianza/(VarianzaVar2 ^ 2))*(nvar2 - promvar2)
+  
+  resultados[[1]] <- data.frame(var1 , var2 , dvar1 , dvar2 , arrayCov ,  desvar1, desvar2)
+  resultados[[2]] <- Covarianza
+  resultados[[3]] <- r #nos da el porcentaje de la probabilidad de exito
+  resultados[[4]] <- prediccion
+  
+  return (resultados)
+  
+}
+
+```
+KNN
+```{r}
+
+DistanciaDM <- function(x1 , y1 , x2 , y2){
+  
+  return (abs(x2 - x1)+ abs(y2 - y1))
+  
+}
+
+#saca distancia euclidiana
+DistanciaEu <- function(x1 , y1 , x2 , y2){
+  
+  return (((x2 - x1)^2 + (y2 - y1)^2)^0.5)
+  
+}
+
+#Funcion para hallar las distancias mas cortas de un punto en la grafica "numero de casos de violencia fisica" vs "numero de
+#casos de violencia sexual" 
+
+KNN <- function(df , x , y , k){
+  
+  dfTemp <- df
+  
+  #dm <- DistanciaDM(x,y,df$x , df$y) #Distancia Manhattan
+  dm <- DistanciaEu(x,y,df$N..CASOS.ATENDIDOS...VIOLENCIA.FISICA , df$N..CASOS.ATENDIDOS...VIOLENCIA.SEXUAL) #Distancia Euclidiana
+  
+  dfTemp$distancias <- dm
+  
+  dfTemp <- dfTemp[with(dfTemp , order(dfTemp$distancias)), ]
+  
+  Minimos <- dfTemp[c(1:k) , "DEPARTAMENTO"]
+  
+  
+  return (Minimos)
+  
+}
+
+
+Probabilidades <- function(minimos){
+  VCat <- unique(minimos)
+  
+  Departamento <- c()
+  freq <- c()
+  
+  
+  for (i in 1:NROW(VCat)){
+    
+    term <- VCat[i]
+    
+    Departamento <- c(Departamento, term)
+    
+    ft <- sum(as.numeric(minimos == term))
+    
+    freq <- c(freq , ft)
+    
+    
+  }
+  
+  TabFreq <- data.frame(Departamento , freq)
+  total <- sum(TabFreq$freq)
+  TabFreq$PorcetajeProb <- TabFreq$freq * 100/total
+  return (TabFreq)
+  
+}
+
+
+Modelo_KNN <- function(df , x , y , k){
+  
+  return (Probabilidades(KNN(dfKNN , 125 , 132 , k)))
+  
+}
+
+
+```
+
+
+## 3.Conclusiones
+
+En conclusión se realizo un proyecto siguiendo el ciclo de vida de la ciencia de datos . En este caso se realizó dicho estudio para hacer un analisis de lo que vendria a ser esta gran problematica que es el tema de la violencia social.
